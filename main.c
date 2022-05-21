@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <omp.h>
 #include <mpi.h>
 struct pointer
 {
@@ -24,11 +25,8 @@ int main(int argc, char *argv[])
     int *sums;
     FILE *ptr;
     int *array;
-
     ptr = fopen("/shared/dataset.txt", "r");
-
     int numBars;
-    //    printf("Enter number of Bars : \n");
     // scanf("%d", &numBars);
     numBars = 2;
     int *counter = malloc(numBars * sizeof(int)), localCounter[numBars];
@@ -81,7 +79,19 @@ int main(int argc, char *argv[])
         }
 
         portionSize = sizee / (p);
-        // int remainder = sizee - (portionSize * p );
+        int remSize = 20 - p * portionSize;
+        i = 0;
+        for (; i < remSize; i++)
+        {
+            for (j = 0; j < numBars; j++)
+            {
+                if (isBetween(array[i + (p * portionSize)], points[j].start, points[j].end) == 1)
+                {
+                    localCounter[j]++;
+                }
+            }
+        }
+
     }
     MPI_Bcast(&portionSize, 1, MPI_INT, 0, MPI_COMM_WORLD);
     portionArr = malloc(portionSize * sizeof(int));
@@ -106,7 +116,7 @@ int main(int argc, char *argv[])
     MPI_Barrier(MPI_COMM_WORLD);
     sums = malloc(p * sizeof(int));
     j = 0;
-    for (;j < numBars; j++)
+    for (; j < numBars; j++)
     {
         MPI_Allgather(&localCounter[j], 1, MPI_INT, sums, 1, MPI_INT, MPI_COMM_WORLD);
         for (i = 0; i < p; i++)
@@ -116,7 +126,8 @@ int main(int argc, char *argv[])
     }
     MPI_Barrier(MPI_COMM_WORLD);
     if (my_rank == 0)
-    {   i=0;
+    {
+        i = 0;
         for (; i < numBars; i++)
         {
             printf(" The range start with %d, end with %d , with count %d \n ", points[i].start, points[i].end, counter[i]);
